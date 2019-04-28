@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Path.UX</title>
+<script type="application/javascript" src="scripts/require.js" data-main="scripts/app">
+</script>
+<script type="application/javascript">
+window.init = function() {
+    require(["app"], (app) => {
+        console.log("init");
+        app.start();
+    });    
+}
+</script>
+<style>
+body {
+  overflow : hidden;
+}
+</style>
+</head>
+<body onload="init()">
+<img id="iconsheet" style="display:none" src="iconsheet.png"></img>
+<img id="iconsheet16" style="display:none" src="iconsheet16.png"></img>
+</body>
+</html>
