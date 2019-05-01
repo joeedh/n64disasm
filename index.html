@@ -1,20 +1,12 @@
 <!DOCTYPE html>
 <html>
 <head>
-<title>Path.UX</title>
-<script type="application/javascript" src="scripts/require.js" data-main="scripts/app">
-</script>
-<script type="application/javascript">
-window.init = function() {
-    require(["app"], (app) => {
-        console.log("init");
-        app.start();
-    });    
-}
-</script>
+<title>N64 Disassembler</title>
+<script type="application/javascript" src="scripts/require.js"></script>
+<script type="module" src="scripts/entry.js"></script>
 <style>
 body {
-  overflow : hidden;
+#  overflow : hidden;
 }
 </style>
 </head>

@@ -7,9 +7,9 @@ INDEXFILE = "/index.html"
 PORT = 5001
 
 mimetypes = {
-  ".js"   : "application/x-javascript",
+  ".js"   : "application/javascript",
   ".html" : "text/html",
-  ".json" : "application/x-javascript",
+  ".json" : "application/javascript",
   ".glsl" : "text/plain",
   ".png"  : "image/png",
   ".jpg"  : "image/jpeg",
@@ -206,7 +206,7 @@ class Handler:
   def send_error(self, error):
     body = b"Error: " + bs(error)
     
-    self.add_header("MimeType", "text/plain")
+    self.add_header("Content-Type", "text/plain")
     self.set_body(body)
     self.send_response(error)
   
@@ -218,7 +218,7 @@ class Handler:
       path = INDEXFILE
     
     abspath = os.path.abspath(os.path.normpath(dir+os.path.sep+path))
-    print(abspath)
+    
     if not abspath.startswith(dir):
       self.send_error(404)
       return
@@ -238,7 +238,8 @@ class Handler:
     
     self.set_body(buf)
     
-    self.add_header("MimeType", get_mime(path))
+    print(get_mime(path))
+    self.add_header("Content-Type", get_mime(path))
     self.send_response(200)
     
 server = Server(("", PORT), Handler)
