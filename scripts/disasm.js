@@ -285,7 +285,7 @@ export let init = () => {
       this.container.style["overflow"] = "hidden";
       this.container.dom.style["overflow"] = "hidden";
       
-      if (this.size !== undefined) {
+      if (this.size !== undefined && this.widget !== undefined) {
         this.widget.dom.style["height"] = this.size[1] + "px";
       }
       
