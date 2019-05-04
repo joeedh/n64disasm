@@ -1,6 +1,7 @@
 import * as rpc from './rpc.js';
 import * as dis from './disasm_intern.js';
 import {Struct, StructManager} from './structdef.js';
+import {TagFlags, MemTag, MemTagMap} from './memmap.js';
 
 import * as globevt from './global_events.js';
 let EVT = globevt.EventTypes;
@@ -140,13 +141,10 @@ export var majora_mask_symtable = `TextXY,0x800872EC
 
 window.majora_mask_symtable = majora_mask_symtable;
 
-export class Tag {
-  constructor(name, start, size) {
-    this.name = name;
-    this.start = start;
-    this.size = size;
-  }
-}
+export const TagMaps = {
+  TYPE     :   1,
+  FUNCTION :   2
+};
 
 export class Symbol {
   constructor(name, address) {
@@ -160,11 +158,18 @@ export class Symbol {
   }
 }
 
+//okay, so actually this should RAMCodeModel, it doesn't map the ROM
 export class ROMCodeModel {
   constructor() {
     this.tags = [];
     this.locs = {};
     this.totloc = 0;
+    
+    this.tagmaps = {};
+    
+    for (let k in TagMaps) {
+      this.tagmaps[k] = new MemTagMap();
+    }
     
     this.symbols = {};
     this.loadSymTable(majora_mask_symtable);
@@ -208,6 +213,24 @@ export class ROMCodeModel {
     globevt.fire(EVT.SYMBOL_UPDATE|evt.ADD_SYMBOL, addr);
 
     return sym;
+  }
+  
+  setTag(tagtype, start, end, tag) {
+    if (tag === undefined) {
+      throw new Error("tag cannot be undefined");
+    }
+    
+    return this.tagmaps[tagtype].newTag(start, end, name);
+  }
+  
+  getTag(tagtype, addr) {
+    return this.tagmaps[tagtype].get(addr);
+  }
+  
+  on_tick() {
+    for (let k in this.tagmaps) {
+      this.tagmaps[k].on_tick();
+    }
   }
   
   removeSymbol(addr) {
@@ -310,6 +333,7 @@ export class ROMCodeModel {
       locs : this.locs,
       symbols : this.symbols,
       structs : this.structs,
+      tagmaps : this.tagmaps
     }
     
     return ret;
@@ -318,6 +342,21 @@ export class ROMCodeModel {
   loadJSON(obj) {
     this.totloc = 0;
     this.locs = {};
+    this.tagmaps = {};
+    
+    for (let k in TagMaps) {
+      this.tagmaps[k] = new MemTagMap();
+    }
+    
+    obj.tagmaps = obj.tagmaps === undefined ? {} : obj.tagmaps;
+    
+    for (let k in obj.tagmaps) {
+      if (!(k in this.tagmaps)) {
+        this.tagmaps[k] = new MemTagMap();
+      }
+      
+      this.tagmaps[k].loadJSON(obj.tagmaps[k]);
+    }
     
     for (let k in obj.locs) {
       this.locs[k] = obj.locs[k];

@@ -64,6 +64,7 @@ export class Type {
     this.data = data;
     this.parent = parent;
     this.name = name;
+    this.startbit = -1;
     this.comment = "";
     this.size = 1; //array size
   }
@@ -80,7 +81,9 @@ export class Type {
       data : data,
       name : this.name,
       comment : this.comment,
-      size : this.size
+      size : this.size,
+      startbit : this.startbit,
+      endbit : this.endbit
     }
   }
   
@@ -90,6 +93,9 @@ export class Type {
     this.name = obj.name;
     this.size = obj.size;
     this.comment = obj.comment !== undefined ? obj.comment : "";
+    this.startbit = obj.startbit !== undefined ? obj.startbit : -1;
+    this.startbyte = obj.startbit>>3;
+    this.endbit = obj.endbit;
     
     if (typeof this.data == "object") {
       let data = new Type();
@@ -136,7 +142,6 @@ export class StructMember extends Type {
   constructor(type, data, name, parent) {
     super(type, data, name, parent);
     this.flag = 0;
-    this.startbit = -1;
     this.name = name;
   }
   
@@ -203,7 +208,6 @@ export class StructMember extends Type {
     this.id = obj.id;
     this.flag = obj.flag;
     this.name = obj.name;
-    this.startbit = obj.startbit;
     
     return this;
   }
@@ -212,8 +216,7 @@ export class StructMember extends Type {
     let ret = {
       flag : this.flag,
       id : this.id,
-      name : this.name,
-      startbit : this.startbit
+      name : this.name
     };
     
     return Object.assign(super.toJSON(), ret);
@@ -244,6 +247,17 @@ export class Struct {
     this.idmap[m.id] = m;
     this.namemap[m.name] = m;
     this.members.push(m);
+  }
+  
+  remove(m) {
+    if (this.members.indexOf(m) < 0) {
+      console.warn("member not in struct " + this.name, m);
+      return;
+    }
+    
+    delete this.idmap[m.id];
+    delete this.namemap[m.name];
+    this.members.remove(m);
   }
   
   _makebasic(type, name) {
@@ -312,15 +326,19 @@ export class Struct {
     let bi = 0;
     this._incalc = 1;
     
+    let lastm = undefined;
+    
     let recurse = (type) => {
       if (type.type in value_typemap) {
         let sz = value_typemap[type.type];
-        bi += sz;
-        
+
         //enforce alignment
         if (bi % sz != 0) {
-          bi = bi - (bi % sz) + sz;
+          bi = Math.ceil(bi / sz)*sz;
+          //bi = bi - (bi % sz) + sz;
         }
+        
+        bi += sz;
       } else if (type.type & (POINTER|FUNCTION)) {
         if (bi & 32) { //pad alignment
           bi = bi - (bi & 31) + 32;
@@ -347,9 +365,20 @@ export class Struct {
     }
     
     for (let m of this.members) {
-      m.startBit = bi;
+      if (m.type in value_typemap) {
+        let sz = value_typemap[m.type];
+
+        //enforce alignment
+        if (bi % sz != 0) {
+          bi = bi - (bi % sz) + sz;
+        }
+      }
+        
+      m.startbit = bi;
+      m.startbyte = bi>>3;
       
       recurse(m);
+      m.endbit = bi;
     }
     
     this._incalc = 0;
@@ -442,6 +471,12 @@ export class StructManager extends Array {
     }
     
     return this;
+  }
+  
+  sizeStructs() {
+    for (let st of this) {
+      st.calcSize();
+    }
   }
   
   get(id_or_name) {

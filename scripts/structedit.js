@@ -4,6 +4,7 @@ import {OpInfoTable, loadOpCode, OpI, OpR, OpJ} from './disasm_intern.js';
 import * as rpc from './rpc.js';
 let ui_base = mods.ui_base;
 import {StructTypes, StructFlags, Type, Struct} from './structdef.js';
+import * as editops from './editops.js';
 
 import * as globevt from "./global_events.js";
 
@@ -23,6 +24,7 @@ export let init = () => {
   ScreenArea.AreaTypes.STRUCT_EDITOR = 254;
   
   let ui = mods.ui, ui_base = mods.ui_base;
+  let PackFlags = ui_base.PackFlags;
    
   exports.StructEditor = class StructEditor extends ScreenArea.Area {
     constructor() {
@@ -62,7 +64,12 @@ export let init = () => {
       }
       
       this._subscribed = true;
-      globevt.subscribe(EVT.STRUCT_UPDATE|EVT.ADD_UPDATE|EVT.DEL_UPDATE, this.on_global_event.bind(this), this);
+      let types = EVT.UNDO_LOAD | 
+                  EVT.STRUCT_UPDATE |
+                  EVT.NEW_STRUCT |
+                  EVT.DEL_STRUCT;
+      
+      globevt.subscribe(types, this.on_global_event.bind(this), this);
     }
     
     _init() {
@@ -95,6 +102,7 @@ export let init = () => {
       console.log("got global event!", event, data, this._area_id);
       
       switch (event) {
+        case EVT.UNDO_LOAD:
         case EVT.DEL_STRUCT:
         case EVT.ADD_STRUCT:
           this.doOnce(this.reload);
@@ -171,6 +179,10 @@ export let init = () => {
       row.button("new", () => {
         let ctx = this.ctx;
         
+        let tool = new editops.exports.AddStructOp();
+        ctx.execTool(tool);
+        this.structid = tool.outputs.structid.getValue();
+        
         let st = ctx.model.structs.create();
         this.structid = st.id;
         this.reload();
@@ -198,6 +210,8 @@ export let init = () => {
         return;
       }
       
+      st.calcSize();
+      
       row = table.row();
       let col = row.col();
       
@@ -220,10 +234,18 @@ export let init = () => {
       
       row = table.row();
      
-      row.label("name");
-      row.label("type");
-      row.label("comment");
-
+      row.label("Offset (byte:[start:end bits])");
+      row.label("Name");
+      row.label("Type");
+      row.label("Comment");
+      row.label("Delete");
+      
+      let makeTool = (st, m) => {
+        return () => {
+          return new editops.exports.DelStructMember(st, m);
+        }
+      }
+      
       let mi  =0;
       for (let m of st.members) {
         let path2 = path + ".members[" + mi + "]";
@@ -231,10 +253,19 @@ export let init = () => {
         row = table.row();
         row.background = "rgba(240, 240, 240, 1.0)";
         
+        let row2 = row.row();
+        row2.background = row.background;
+        row2.pathlabel(path2 + ".startbytef");
+        row2.pathlabel(path2 + ".startbit", ": [");
+        row2.pathlabel(path2 + ".endbit", ":");
+        row2.label("]");
+        
         row.textbox(path2 + ".name");
         let col = row.col();
         this.makeTypeUI(col, m, path2, st);
         row.textbox(path2 + ".comment");
+        
+        row.tool(editops.exports.DelStructMember, makeTool(st, m), PackFlags.USE_ICONS);
         
         mi++;
       }

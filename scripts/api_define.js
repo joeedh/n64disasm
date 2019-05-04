@@ -5,6 +5,12 @@ import * as globevt from './global_events.js';
 
 let EventTypes = globevt.EventTypes, EVT = EventTypes;
 
+function gfire(type) {
+  return () => {
+    globevt.fire(type);
+  }
+}
+
 function type_type_callback(val) {
   let test = structdef.StructTypes.ARRAY;// | structdef.StructTypes.STRUCT;
   test = test | structdef.StructTypes.POINTER;
@@ -23,48 +29,47 @@ function type_type_callback(val) {
       type.data.parent = type;
     }
   }
-}
-
-export function define_type_type(api) {
-  let st = api.mapStruct(structdef.Type);
   
-  st.string("name", "name");
-  st.enum("type", "type", structdef.StructTypes).on("change", type_type_callback);
-  st.int("size", "size"); //array size, if an array
-  st.string("comment", "comment");
-  
-  return st;
+  gfire(EVT.STRUCT_UPDATE);
 }
 
-function gfire(type) {
-  return () => {
-    globevt.fire(type);
-  }
-}
-
-export function define_struct_member(api) { //is actually a subclass of define_struct_type (struct.Type)
-  let st = api.mapStruct(structdef.StructMember);
+export function define_type_type(api, cls) {
+  let st = api.mapStruct(cls);
   
   st.enum("type", "type", structdef.StructTypes).on("change", type_type_callback);
   
   st.string("name", "name").on("change", function(val) {
-    console.log("struct member name change callback!", this.dataref);
+    console.log("struct member or type's name change callback!", this.dataref);
   }).on("change", gfire(EVT.STRUCT_UPDATE));
   
    //array size, if an array
   st.int("size", "size").on("change", gfire(EVT.STRUCT_UPDATE));
+  st.int("startbit", "startbit").read_only().radix(16);
+  st.int("endbit", "endbit").read_only().radix(16);
+  st.int("startbyte", "startbyte").read_only().radix(16);
+  
+  st.float("startbytef", "startbytef").read_only().decimalPlaces(1).customGetSet(function() {
+    return this.dataref.startbit/8;
+  });
+  
+  st.string("comment", "comment").on("change", gfire(EVT.STRUCT_UPDATE));
+  
+  return st;
+}
+
+export function define_struct_member(api) { //is actually a subclass of define_struct_type (struct.Type)
+  define_type_type(api, structdef.Type);
+  
+  let st = define_type_type(api, structdef.StructMember);
+  
   st.flags("flag", "flag", structdef.StructFlags).on("change", gfire(EVT.STRUCT_UPDATE));
   st.int("id", "id").on("change", gfire(EVT.STRUCT_UPDATE));
-  st.int("startbit", "startbit").on("change", gfire(EVT.STRUCT_UPDATE));
-  st.string("comment", "comment").on("change", gfire(EVT.STRUCT_UPDATE));
   
   return st;
   
 }
 
 export function define_struct_type(api) {
-  define_type_type(api);
-  
   let st = api.mapStruct(structdef.Struct);
   
   st.string("name", "name").on("change", function(val, old) {

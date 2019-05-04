@@ -7,6 +7,9 @@ import * as disasm from './disasm.js';
 import * as structedit from './structedit.js';
 import {config} from './config.js';
 import * as model from './model.js';
+import * as globevt from './global_events.js';
+
+let EVT = globevt.EventTypes;
 
 window._rpc = rpc; //for debugging use only
 window._model = model; //for debugging use only
@@ -29,6 +32,19 @@ export class AppState {
     this._last_localstorage_json = undefined;
     
     this.toolstack = new mods.simple_toolsys.ToolStack();
+    
+    this.toolstack._undo = this.toolstack.undo;
+    this.toolstack.undo = () => {
+      this.toolstack._undo();
+      globevt.fire(EVT.UNDO);
+    };
+    
+    this.toolstack._redo = this.toolstack.redo;
+    this.toolstack.redo = () => {
+      this.toolstack._redo();
+      globevt.fire(EVT.REDO);
+    };
+    
     this.api = new controller.DataAPI();
     this.api.prefix = "state.";
     
@@ -85,14 +101,16 @@ export class AppState {
     }
   }
   
-  loadJSON(obj) {
+  loadJSON(obj, load_screen=true) {
     this.model.loadJSON(obj.model);
     
-    try {
-      this.screen.loadJSON(obj.screen, true);
-    } catch (error) {
-      print_stack(error);
-      console.log("failed to load UI layout: error");
+    if (load_screen) {
+      try {
+        this.screen.loadJSON(obj.screen, true);
+      } catch (error) {
+        print_stack(error);
+        console.log("failed to load UI layout: error");
+      }
     }
     
     config.loadJSON(obj.config);
@@ -133,6 +151,66 @@ export class AppState {
     });
   }
   
+  genUndoFile() {
+    return JSON.stringify(this);
+  }
+  
+  loadUndoFile(file) {
+    this.loadJSON(JSON.parse(file), false);
+    globevt.fire(EVT.UNDO_LOAD);
+  }
+  
+  on_keydown(e) {
+    let active = this.screen.pickElement(this.screen.mpos[0], this.screen.mpos[1]);
+    
+    console.log(active !== undefined ? active.tagName.toLowerCase() : "nothing");
+    
+    //textboxes have their own undo handlers
+    if (active === undefined || active.tagName.toLowerCase() != "textbox-x") {
+      this.on_keydown_undo(e);
+    } else if (e.keyCode == 82) {
+      //still prevent page reload though
+      e.preventDefault();
+    }
+  }
+  
+  on_keydown_undo(e) {
+    //console.log(e.keyCode);
+    
+    let code = e.keyCode;
+    //shift, control, alt modifiers
+    let S = 512, C = 1024, A = 2048;
+    
+    let handled = true;
+    if (e.ctrlKey) {
+      code |= C;
+    }
+    if (e.shiftKey) {
+      code |= S;
+    }
+    if (e.altKey) {
+      code |= A;
+    }
+    
+    switch (code) {
+      case 82|C: //rkey
+      case 89|C: //ykey
+      case 90|S|C:
+        this.toolstack.redo();
+        break;
+      case 90|C: //zkey
+        this.toolstack.undo();
+        break;
+      default:
+        handled = false;
+    }
+    
+    if (handled) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+  }
+  
   save() {
     let data = JSON.stringify(this);
     
@@ -149,15 +227,22 @@ export class AppState {
   load() {
     let obj;
     
+    if (!(LOCALSTORAGE_KEY in localStorage)) {
+      //no data is not a failure, e.g. first time run
+      return 1;
+    }
+    
     try {
       obj = JSON.parse(localStorage[LOCALSTORAGE_KEY]);
     } catch (error) {
       console.warn("failed to load localstorage data");
-      return;
+      return 0;
     }
     
     console.log("Loading. . .", obj);
     this.loadJSON(obj);
+    
+    return 1;
   }
 }
 
@@ -177,8 +262,15 @@ export function start() {
   
   api_define(_appstate.api);
   
+  window.addEventListener("keydown", (e) => {
+    _appstate.on_keydown(e);
+  });
+  
   _appstate.makeScreen();
-  _appstate.load();
+  if (!_appstate.load()) {
+    //don't start event timers if load failed
+    return;
+  }
   
   //make on_tick event timer
   window.setInterval(() => {    
