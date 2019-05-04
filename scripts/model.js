@@ -1,5 +1,9 @@
 import * as rpc from './rpc.js';
 import * as dis from './disasm_intern.js';
+import {Struct, StructManager} from './structdef.js';
+
+import * as globevt from './global_events.js';
+let EVT = globevt.EventTypes;
 
 //8008b600h 
 
@@ -162,6 +166,8 @@ export class ROMCodeModel {
     
     this.symbols = {};
     this.loadSymTable(majora_mask_symtable);
+    
+    this.structs = new StructManager();
   }
   
   mapSymbol(addr, to_hex_if_not_found=true) {
@@ -187,15 +193,24 @@ export class ROMCodeModel {
   addSymbol(name, addr) {
     if (addr in this.symbols) {
       this.symbols[addr].name = name;
+      
+      globevt.fire(EVT.SYMBOL_UPDATE, addr);
       return this.symbols[addr];
     }
     
     let sym = new Symbol(name, addr);
     this.symbols[addr] = sym;
+    
+    globevt.fire(EVT.SYMBOL_UPDATE|evt.ADD_SYMBOL, addr);
+
     return sym;
   }
   
   removeSymbol(addr) {
+    if (addr in this.symbols) {
+      globevt.fire(EVT.SYMBOL_UPDATE|evt.DEL_SYMBOL, this.symbols[addr]);
+    }
+    
     delete this.symbols[addr];
   }
   
@@ -289,7 +304,8 @@ export class ROMCodeModel {
   toJSON() {
     let ret = {
       locs : this.locs,
-      symbols : this.symbols
+      symbols : this.symbols,
+      structs : this.structs,
     }
     
     return ret;
@@ -309,6 +325,12 @@ export class ROMCodeModel {
       sym.loadJSON(obj.symbols[k]);
       
       this.symbols[k] = sym;
+    }
+        
+    this.structs = new StructManager();
+    
+    if (obj.structs !== undefined) {
+      this.structs.loadJSON(obj.structs);
     }
     
     return this;

@@ -24,15 +24,19 @@ export class AppState {
     this.ctx = new mods.simple_toolsys.Context();
     
     this.model = new model.ROMCodeModel();
-    this.ctx.model = this.model;
-
-    this.screen = new FrameManager.Screen();
+    
     this.toolstack = new mods.simple_toolsys.ToolStack();
     this.api = new controller.DataAPI();
+    this.api.prefix = "state.";
+    
+    this.screen = new FrameManager.Screen();
   }
   
   on_tick() {
     let w = window.innerWidth, h = window.innerHeight;
+    
+    w -= 7;
+    h -= 7;
     
     if (last_size[0] != w || last_size[1] != h) {
       last_size[0] = w;
@@ -43,7 +47,9 @@ export class AppState {
   }
   
   makeScreen() {
-    let ctx = new ui.SimpleContext(config);
+    this.screen.clear();
+    
+    let ctx = this.ctx;
     
     this.screen = this.gui = document.createElement("screen-x");
     this.screen.ctx = ctx;

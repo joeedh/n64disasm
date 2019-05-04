@@ -4,6 +4,9 @@ import {OpInfoTable, loadOpCode, OpI, OpR, OpJ} from './disasm_intern.js';
 import * as rpc from './rpc.js';
 let ui_base = mods.ui_base;
 
+import * as globevt from './global_events.js';
+let EVT = globevt.EventTypes;
+
 export var exports = {};
 
 var hex = (f) => {
@@ -90,6 +93,13 @@ export let init = () => {
         this.addItem(0x23423, BEQ);
       }
       
+    }
+    
+    init() {
+      //this.table.style["overflow"] = "scroll";
+      //this.table.style["height"] = "100%";
+      //this.style["overflow"] = "scroll";
+      //this.style["height"] = "100%";
     }
     
     clear() {
@@ -200,7 +210,7 @@ export let init = () => {
       
       label.addEventListener("click", function(e) {
         console.log("addr click!", this.parentWidget);
-        let textbox = this.parentWidget.textbox(this.text);
+        let textbox = this.parentWidget.textbox(undefined, this.text);
         
         textbox.onkeydown = (e) => {
           switch (e.keyCode) {
@@ -253,12 +263,24 @@ export let init = () => {
   exports.DisasmEditor = class DisasmEditor extends mods.ScreenArea.Area {
     constructor() {
       super();
-      
+    
       this.ctx = _appstate.ctx;
       this.container = document.createElement("container-x");
       this.shadow.appendChild(this.container);
+      this.container.ctx = this.ctx;
+      
+      this.rows = [];
+    }
+    
+    setCSS() {
+      super.setCSS();
+      this.style["overflow"] = "scroll";
+    }
+    
+    init() {
+      this.setCSS();
       this.searchstr = "";
-      this.addr = 0;
+      this.addr = 2149149920;
       
       let tb, rb, sb; //address textbox and rows textbox
       
@@ -271,16 +293,18 @@ export let init = () => {
         this.fetchPage(addr, parseInt(rb.text));
       }, this, 1);
             
-      //tb = this.container.textbox("2147713036");
-      //tb = this.container.textbox("2214609044");
+      //tb = this.container.textbox(undefined, "2147713036");
+      //tb = this.container.textbox(undefined, "2214609044");
       
       row = this.container.row();
       
-      tb = row.textbox("2149149920");
+      tb = row.textbox(this.buildDataPath()+".addr", "2149149920");
+      //tb.ctx = this.ctx;
+      
       row.label("Rows:");
-      rb = this.rowtext = row.textbox("100");
+      rb = this.rowtext = row.textbox(undefined, "100");
       row.label("Search:");
-      sb = row.textbox("", (t) => {
+      sb = row.textbox(undefined, "", (t) => {
         this.searchstr = t;
         this.applySearch();
       });
@@ -288,8 +312,12 @@ export let init = () => {
       
       this.syms_enum = row.listenum(undefined, "Function", {A_B_2 : 1, b: 2, c: 3}, 1);
       this.buildSymsEnum();
+      
       this.syms_enum.onselect = (id) => {
         id = parseInt(id);
+        let path = tb.getAttribute("datapath");
+        
+        this.ctx.api.setValue(this.ctx, path, id);
         this.fetchPage(id, parseInt(this.rowtext.text));
       }
       this.widget = document.createElement("disasm-widget-x");

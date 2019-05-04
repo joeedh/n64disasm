@@ -13,3 +13,12 @@ window.parseInt = (f) => {
   
   return _parseInt(f);
 }
+
+let _parseFloat = parseFloat;
+window.parseFloat = (f) => {
+  if (f.search("h") >= 0 || f.search("0x") >= 0) {
+    return parseInt(f);
+  }
+  
+  return _parseFloat(f);
+}
