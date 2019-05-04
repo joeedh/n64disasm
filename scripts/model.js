@@ -138,6 +138,8 @@ export var majora_mask_symtable = `TextXY,0x800872EC
 0x800CF0B8,ActorSpawn
 0x800C8FE0,set_actor_size`;
 
+window.majora_mask_symtable = majora_mask_symtable;
+
 export class Tag {
   constructor(name, start, size) {
     this.name = name;
@@ -191,6 +193,8 @@ export class ROMCodeModel {
   }
   
   addSymbol(name, addr) {
+    console.trace()
+    
     if (addr in this.symbols) {
       this.symbols[addr].name = name;
       
@@ -319,6 +323,8 @@ export class ROMCodeModel {
       this.locs[k] = obj.locs[k];
       this.totloc++;
     }
+    
+    this.symbols = {};
     
     for (let k in obj.symbols) {
       let sym = new Symbol();

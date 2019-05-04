@@ -113,7 +113,7 @@ export let init = () => {
     on_resize(size) {
       super.on_resize(size);
       
-      console.log("resize!", this.size);
+      //console.log("resize!", this.size);
       this.setCSS();
       //this.reload();
     }
@@ -134,7 +134,7 @@ export let init = () => {
       //super.setCSS();
       
       let table = this.table;
-      table.style["overflow"] = "scroll";
+      //table.style["overflow"] = "scroll";
       this.style["overflow"] = "scroll";
       
       table["position"] = "absolute";
@@ -149,9 +149,6 @@ export let init = () => {
       
       table.style["width"] = this.size[0] + "px";
       table.style["height"] = this.size[1] + "px";
-      
-      this.style["width"] = this.size[0] + "px";
-      this.style["height"] = this.size[1] + "px";
     }
     
     makeHeader2() {
@@ -257,7 +254,9 @@ export let init = () => {
       
       //console.log(path2  + ".type");
       
-      if (type.type === StructTypes.ARRAY) {
+      if (type.type == StructTypes.FIELD) {
+        col.textbox(path2 + ".size");
+      } else if (type.type === StructTypes.ARRAY) {
         if (type.data === undefined) {
           return;
         //  type.data = new Type(StructTypes.INT32, 
@@ -295,9 +294,16 @@ export let init = () => {
             }
             
             if (st === struct && !have_pointer) {
+              let oldname = typeof (type.data) == "object" ? type.data.name : undefined;
+              oldname = "" + oldname;
+              
+              lenum.setAttribute("name", oldname);
+              lenum.updateName();
+              
               console.warn("can't embedd one struct in itself");
-              return;
               alert("can't embedd one struct in itself");
+              
+              return;
             }
             
             lenum.setAttribute("name", st.name);

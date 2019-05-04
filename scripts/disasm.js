@@ -96,9 +96,11 @@ export let init = () => {
     }
     
     init() {
-      //this.table.style["overflow"] = "scroll";
       //this.table.style["height"] = "100%";
       //this.style["overflow"] = "scroll";
+      //this.crows.dom.style["overflow"] = "scroll";
+      //this.crows.style["overflow"] = "scroll";
+      
       //this.style["height"] = "100%";
     }
     
@@ -126,6 +128,11 @@ export let init = () => {
       }
       
       //this.updateColors();
+    }
+    
+    on_resize(size) {
+      super.on_resize(size);
+      this.setCSS();
     }
     
     setActive(tr) {
@@ -274,11 +281,20 @@ export let init = () => {
     
     setCSS() {
       super.setCSS();
+      //this.style["overflow"] = "hidden";
+      this.container.style["overflow"] = "hidden";
+      this.container.dom.style["overflow"] = "hidden";
+      
+      if (this.size !== undefined) {
+        this.widget.dom.style["height"] = this.size[1] + "px";
+      }
+      
+      //this.widget.dom.style["overflow"] = "scroll";
+      
       this.style["overflow"] = "scroll";
     }
     
     init() {
-      this.setCSS();
       this.searchstr = "";
       this.addr = 2149149920;
       
@@ -322,7 +338,13 @@ export let init = () => {
       }
       this.widget = document.createElement("disasm-widget-x");
       this.widget.tabIndex = 0; //make focusable/visiable to keyboard events
+      this.widget.ctx = this.ctx;
+      //this.container._add(this.widget);
+      
       this.shadow.appendChild(this.widget);
+      
+      this.setCSS();
+      //this.shadow.appendChild(this.widget);
     }
     
     static define() { return {

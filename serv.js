@@ -9,7 +9,7 @@ const path = require('path');
 const WebSocket = require('ws');
 
 const INDEX = "index.html"
-
+const SAVEPATH = "data/zelda_mm.json"
 const basedir = process.cwd();
 
 let mimemap = {
@@ -33,16 +33,105 @@ let getMime = (p) => {
 }
 
 exports.ServerResponse = class ServerResponse extends http.ServerResponse {
+  _addHeaders() {
+    this.setHeader("X-Content-Type-Options", "nosniff");
+    this.setHeader("Access-Control-Allow-Origin", "*");
+  }
+
   sendError(code, message) {
-    this.statusCode = code;
-    this.setHeader('Content-Type', 'text/html');
-    this.end(`<!doctype html>
+    let buf = `<!doctype html>
 <html>
 <head><title>404</title></head>
 <body><div>${message}<div><body>
 </html>
-`);
+`;
+
+    this.statusCode = code;
+    this.setHeader('Host', HOST);
+    this.setHeader('Content-Type', 'text/html');
+    this.setHeader('Content-Length', buf.length);
+    this._addHeaders();
+    
+    this.writeHead(code).end(buf);
   }
+}
+
+let performance = require('perf_hooks').performance ;
+let time_ms = () => {
+  return performance.now();
+};
+
+let _saving = undefined;
+let _last_false = undefined;
+
+setInterval(() => {
+  if (!_saving) {
+    _last_false = time_ms();
+  }
+  
+  if (time_ms() - _last_false > 4000) {
+    console.warn("Timeout detected in save code");
+    _saving = false;
+  }
+}, 50);
+
+function cycleData(p, data, totcycles=4096) {
+  if (_saving) {
+    console.warn("RACE CONDITITON IN NODE");
+    return false;
+  }
+  _saving = true;
+  
+  p = path.normalize(p);
+  
+  if (!fs.existsSync(p)) {
+    fs.writeFileSync(p, data);
+    console.log("writing", p);
+    _saving = false;
+    return true;
+  }
+  
+  let buf = fs.readFileSync(p, "ascii");
+  if (buf == data) {
+    console.log("file was same");
+    _saving = false;
+    return true;
+  } else {
+    let ret = true;
+    
+    try {
+      console.log("saving. . .");
+      fs.renameSync(p, p + "._");
+      fs.writeFileSync(p, data);
+      
+      let dir = p + ".archive";
+      
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir);
+      }
+      
+      for (let i=totcycles-1; i >= 1; i--) {
+        let p2 = dir + "/" + i + ".json";
+        let p3 = dir + "/" + (i+1) + ".json";
+        
+        //console.log(p2)
+        if (fs.existsSync(p2)) {
+          //console.log(p2, p3);
+          fs.renameSync(p2, p3);
+        }
+      }
+      
+      fs.renameSync(p+"._", dir+"/1.json");
+    } catch (error) {
+      ret = false;
+      console.log("ERROR", error);
+    }
+    
+    _saving = false;
+    return ret;
+  }
+  
+  _saving = false;
 }
 
 const serv = http.createServer({
@@ -55,6 +144,49 @@ const serv = http.createServer({
   }
   
   console.log(req.method, p);
+  
+  if (p == "/save") {
+    res.writeProcessing();
+    
+    //console.log("  save api called");
+    req.once("data", (msg) => {
+      let s = "";
+      for (let i=0; i<msg.length; i++) {
+        s += String.fromCharCode(msg[i]);
+      }
+      
+      //s = JSON.stringify(JSON.parse(s), undefined, 1);
+      console.log(s.length, "<------------");
+      
+      if (!cycleData(SAVEPATH, s)) {
+        res.sendError(500, "save error");
+        return;
+      }
+      
+      let buf = JSON.stringify({
+        status : "ok",
+        recvlen : s.length
+      });
+      
+      console.log("done!", res.finished);
+      buf = ""; //"<!doctype html><html><head><title>ok</head></title><body>ok</body></html>";
+      res._addHeaders();
+      res.sendError(200, "yay");
+      /*
+      res._addHeaders();
+      res.setHeader('Content-Type', "text/plain");
+      res.setHeader('Content-Length', "2");
+      res.statusCode = 200;
+      res.end("ok");
+      //*/
+      //res.setHeader('Content-Type', "text/plain");
+      //res.end(buf);
+    });
+    
+    req.read();
+    
+    return;
+  }
   
   if (p == "/") {
     p += INDEX
@@ -85,6 +217,7 @@ const serv = http.createServer({
   
   res.statusCode = 200;
   res.setHeader('Content-Type', mime);
+  res._addHeaders();
   res.end(buf);
 });
 

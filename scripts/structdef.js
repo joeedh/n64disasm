@@ -11,7 +11,8 @@ export var StructTypes = {
   POINTER : (1<<9),
   FUNCTION : (1<<10),
   ARRAY : (1<<11),
-  STRUCT : (1<<12)
+  STRUCT : (1<<12),
+  FIELD : (1<<13) //bit field
 }
 
 let INT32 = StructTypes.INT32,
@@ -26,7 +27,8 @@ let INT32 = StructTypes.INT32,
     ARRAY = StructTypes.ARRAY,
     POINTER = StructTypes.POINTER,
     FUNCTION = StructTypes.FUNCTION,
-    FLAG = StructTypes.FLAG;
+    FLAG = StructTypes.FLAG,
+    FIELD = StructTypes.FIELD;
     
 let value_typemap = {
   [POINTER] : 32,
@@ -47,6 +49,10 @@ export function warning(msg) {
 
 //returns size in bytes
 export function typesize(type) {
+  if (type.type == FIELD) {
+    return type.size;
+  }
+  
   if (type.type in value_typemap) {
     return value_typemap[type.type]>>3;
   }
@@ -73,7 +79,8 @@ export class Type {
       type : this.type,
       data : data,
       name : this.name,
-      comment : this.comment
+      comment : this.comment,
+      size : this.size
     }
   }
   
@@ -81,6 +88,7 @@ export class Type {
     this.type = obj.type;
     this.data = obj.data;
     this.name = obj.name;
+    this.size = obj.size;
     this.comment = obj.comment !== undefined ? obj.comment : "";
     
     if (typeof this.data == "object") {
@@ -273,6 +281,12 @@ export class Struct {
     return this._makebasic(StructTypes.FLOAT64, name);
   }
 
+  field(name, type, size) {
+    let ret = new StructMember(StructTypes.FIELD, type, name, this);
+    this.add(ret);
+    return ret;
+  }
+  
   array(name, type, size) {
     let ret = new StructMember(StructTypes.ARRAY, type, name, this);
     this.add(ret);
@@ -323,8 +337,12 @@ export class Struct {
         
         type.data.calcSize();
         bi += type.data.size;
-      } else if (type.type == FLAG) {
-        
+      } else if (type.type == StructTypes.ARRAY && type.data !== undefined) {
+        for (let i=0; i<type.size; i++) {
+          recurse(type.data);
+        }
+      } else if (type.type == FIELD) {
+        bi += type.size;
       }
     }
     

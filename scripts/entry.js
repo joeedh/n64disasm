@@ -12,10 +12,12 @@ window.init = () => {
   });
   
   require(["ui", "FrameManager", "ui_widgets", "simple_toolsys", "ui_base", "ScreenArea",
-           "controller"], 
-          (ui, FrameManager, ui_widgets, simple_toolsys, ui_base, ScreenArea, controller) => {
+           "controller", "ui_noteframe"], 
+          (ui, FrameManager, ui_widgets, simple_toolsys, ui_base, ScreenArea, controller,
+           ui_noteframe) => {
     
     mods.ui = ui;
+    mods.ui_noteframe = ui_noteframe;
     mods.FrameManager = FrameManager;
     mods.ui_widgets = ui_widgets;
     mods.simple_toolsys = simple_toolsys;

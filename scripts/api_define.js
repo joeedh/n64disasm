@@ -12,6 +12,10 @@ function type_type_callback(val) {
   console.log("enum set in struct member type", val);
   let type = this.dataref;
   
+  if (val == structdef.StructTypes.FIELD && typeof type.data != "number") {
+    type.data = 1;
+  }
+  
   if (val & test) {
     if (type.data === undefined) {
       console.log("spawning subtype");

@@ -12,6 +12,7 @@ window._rpc = rpc; //for debugging use only
 window._model = model; //for debugging use only
 
 let ui, FrameManager, ui_widgets, ui_base, controller;
+let ui_noteframe;
 import {api_define} from './api_define.js';
 
 let LOCALSTORAGE_KEY = "startup_n64disasm";
@@ -24,6 +25,8 @@ export class AppState {
     this.ctx = new mods.simple_toolsys.Context();
     
     this.model = new model.ROMCodeModel();
+    this._last_remote_json = undefined;
+    this._last_localstorage_json = undefined;
     
     this.toolstack = new mods.simple_toolsys.ToolStack();
     this.api = new controller.DataAPI();
@@ -95,8 +98,52 @@ export class AppState {
     config.loadJSON(obj.config);
   }
   
+  saveRemote() {
+    let data = JSON.stringify(this);
+    if (data == this._last_remote_json) {
+      return;
+    }
+    
+    this._last_remote_json = data;
+    console.log("saving remote data");
+    
+    let onerror = (err) => {
+      console.log("ERROR", err);
+      ui_noteframe.sendNote("Save error", "red");
+      this._last_remote_json = undefined;
+    }
+    
+    fetch("http://127.0.0.1:5001/save", {
+      method : "POST",
+      mode : "no-cors",
+      cache : "no-cache",
+      headers : {
+        "Content-Type": "text/json"
+      },
+      body : data
+    }).catch(() => {
+      ui_noteframe.sendNote("Save error", "red");
+      this._last_remote_json = undefined;
+    }).then((resp, onerror) => {
+      if (!resp.ok) {
+        console.log("Error saving remote!", resp);
+        ui_noteframe.sendNote("Save error", "red");
+        this._last_remote_json = undefined;
+      }
+    });
+  }
+  
   save() {
-    localStorage[LOCALSTORAGE_KEY] = JSON.stringify(this);
+    let data = JSON.stringify(this);
+    
+    if (data == this._last_localstorage_json) {
+      return;
+    }
+    
+    console.log("autosaving in localstorage. . .");
+    
+    localStorage[LOCALSTORAGE_KEY] = data;
+    this._last_localstorage_json = data;
   }
   
   load() {
@@ -120,6 +167,7 @@ export function start() {
   rpc.connect();
   
   ui = mods.ui;
+  ui_noteframe = mods.ui_noteframe;
   controller = mods.controller;
   FrameManager = mods.FrameManager;
   ui_widgets = mods.ui_widgets;
@@ -139,9 +187,14 @@ export function start() {
   
   //make autosave timer
   window.setInterval(() => {
-    console.log("autosaving");
+    //console.log("autosaving");
     _appstate.save();
   }, 1000);
   
+  window.setInterval(() => {
+    //console.log("autosaving remote");
+    _appstate.saveRemote();
+  }, 2000);
+    
   console.log("done");
 }
