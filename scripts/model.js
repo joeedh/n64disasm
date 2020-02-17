@@ -1,7 +1,9 @@
 import * as rpc from './rpc.js';
 import * as dis from './disasm_intern.js';
 import {Struct, StructManager} from './structdef.js';
-import {TagFlags, MemTag, MemTagMap} from './memmap.js';
+import {TagFlags, MemTag, MemTagMap, TagManager} from './memmap.js';
+
+import * as typeparser from './typeparser.js';
 
 import * as globevt from './global_events.js';
 let EVT = globevt.EventTypes;
@@ -141,11 +143,6 @@ export var majora_mask_symtable = `TextXY,0x800872EC
 
 window.majora_mask_symtable = majora_mask_symtable;
 
-export const TagMaps = {
-  TYPE     :   1,
-  FUNCTION :   2
-};
-
 export class Symbol {
   constructor(name, address) {
     this.name = name;
@@ -161,20 +158,41 @@ export class Symbol {
 //okay, so actually this should RAMCodeModel, it doesn't map the ROM
 export class ROMCodeModel {
   constructor() {
-    this.tags = [];
+    this.tags = new TagManager();
     this.locs = {};
     this.totloc = 0;
-    
-    this.tagmaps = {};
-    
-    for (let k in TagMaps) {
-      this.tagmaps[k] = new MemTagMap();
-    }
     
     this.symbols = {};
     this.loadSymTable(majora_mask_symtable);
     
     this.structs = new StructManager();
+  }
+  
+  fetchMemory(addr, size) {
+    if (size === undefined) {
+      throw new Error("missing size argument");
+    }
+    /*
+    return new Promise((accept, reject) => {
+      let data = [];
+      for (let i=0; i<size; i++) {
+        data.push(~~(Math.random()*255));
+      }
+      
+      accept(data);
+    });//*/
+    
+    return new Promise((accept, reject) => {
+        rpc.exec("myReadBlock8", [addr, size]).then((block) => {
+          for (let i=0; i<block.length; i++) {
+            if (block[i] === true)
+              block[i] = 1;
+            if (block[i] === false)
+              block[i] = 0;
+          }
+          accept(block);
+        });
+    });
   }
   
   mapSymbol(addr, to_hex_if_not_found=true) {
@@ -220,17 +238,15 @@ export class ROMCodeModel {
       throw new Error("tag cannot be undefined");
     }
     
-    return this.tagmaps[tagtype].newTag(start, end, name);
+    return this.tags.createTag(tag, tagtype, start, end-start);
   }
   
   getTag(tagtype, addr) {
-    return this.tagmaps[tagtype].get(addr);
+    return this.tags.maps[tagtype].get(addr);
   }
   
   on_tick() {
-    for (let k in this.tagmaps) {
-      this.tagmaps[k].on_tick();
-    }
+    this.tags.on_tick();
   }
   
   removeSymbol(addr) {
@@ -333,7 +349,7 @@ export class ROMCodeModel {
       locs : this.locs,
       symbols : this.symbols,
       structs : this.structs,
-      tagmaps : this.tagmaps
+      tags    : this.tags
     }
     
     return ret;
@@ -342,21 +358,7 @@ export class ROMCodeModel {
   loadJSON(obj) {
     this.totloc = 0;
     this.locs = {};
-    this.tagmaps = {};
-    
-    for (let k in TagMaps) {
-      this.tagmaps[k] = new MemTagMap();
-    }
-    
-    obj.tagmaps = obj.tagmaps === undefined ? {} : obj.tagmaps;
-    
-    for (let k in obj.tagmaps) {
-      if (!(k in this.tagmaps)) {
-        this.tagmaps[k] = new MemTagMap();
-      }
-      
-      this.tagmaps[k].loadJSON(obj.tagmaps[k]);
-    }
+    this.tags = new TagManager();
     
     for (let k in obj.locs) {
       this.locs[k] = obj.locs[k];
@@ -376,6 +378,10 @@ export class ROMCodeModel {
     
     if (obj.structs !== undefined) {
       this.structs.loadJSON(obj.structs);
+    }
+    
+    if (obj.tags !== undefined) {
+      this.tags.loadJSON(obj.tags);
     }
     
     return this;

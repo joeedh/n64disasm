@@ -400,7 +400,7 @@ export let init = () => {
       
       this.widget.clear();
       
-      rpc.exec("myReadBlock", [addr, lines*4]).then((value) => {
+      rpc.exec("myReadBlock32", [addr, lines*4]).then((value) => {
         //console.log("mem", value);
         
         for (let i=0; i<value.length; i++) {

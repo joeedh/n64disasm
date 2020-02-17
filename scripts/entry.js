@@ -3,6 +3,7 @@ import {mods} from './rjsmods.js';
 import * as disasm from './disasm.js';
 import * as structedit from './structedit.js';
 import * as editops from './editops.js';
+import * as memedit from './memedit.js';
 
 window.init = () => {
   console.log("init!");
@@ -13,7 +14,7 @@ window.init = () => {
   });
   
   require(["ui", "FrameManager", "ui_widgets", "simple_toolsys", "ui_base", "ScreenArea",
-           "controller", "ui_noteframe", "toolprop"], 
+           "controller", "ui_noteframe", "toolprop"],
           (ui, FrameManager, ui_widgets, simple_toolsys, ui_base, ScreenArea, controller,
            ui_noteframe, toolprop) => {
     
@@ -29,6 +30,7 @@ window.init = () => {
     
     disasm.init();
     structedit.init();
+    memedit.init();
     editops.init(mods);
     
     app.start();

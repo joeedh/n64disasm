@@ -10,7 +10,8 @@ export let EventTypes = {
   DEL_SYMBOL       : (1<<5),
   UNDO             : (1<<6),
   REDO             : (1<<7),
-  UNDO_LOAD        : (1<<8)
+  UNDO_LOAD        : (1<<8),
+  MEM_UPDATE       : (1<<9)
 };
 let maxbits = 16;
 

@@ -2,6 +2,7 @@ import * as disasm from './disasm.js';
 import * as model from './model.js';
 import * as structdef from './structdef.js';
 import * as globevt from './global_events.js';
+import * as memedit from './memedit.js';
 
 let EventTypes = globevt.EventTypes, EVT = EventTypes;
 
@@ -94,23 +95,38 @@ export function define_model_type(api) {
 
 import * as structedit from "./structedit.js";
 
+export function define_disasm(api) {
+  let st = api.mapStruct(disasm.exports.DisasmEditor);
+  
+  let dpath = st.int("addr", "addr", "Address", "Current memory address to display");
+  dpath.range(0x80000000, Math.pow(2, 32)-1).radix(16); 
+}
+
 export function define_structedit(api) {
   let st = api.mapStruct(structedit.exports.StructEditor);
   
   st.int("structid", "structid");
 }
 
+export function define_memedit(api) {
+  let st = api.mapStruct(memedit.exports.MemEditor);
+  
+  function memreload() {
+    this.dataref.fetch();
+  }
+  
+  st.int("addr", "addr", "Address", "Current memory address to display").on("change", memreload).radix(16);
+  st.int("rows", "rows", "Rows", "Number of rows").on("change", memreload);
+}
+
 export function define_editors(api) {
+  define_disasm(api);
   define_structedit(api);
+  define_memedit(api);
 }
 
 
-export function api_define(api) {
-  let st = api.mapStruct(disasm.exports.DisasmEditor);
-  
-  let dpath = st.int("addr", "addr", "Address", "Current memory address to display");
-  dpath.range(0x80000000, Math.pow(2, 32)-1).radix(16); 
-  
+export function api_define(api) {  
   define_model_type(api);
   define_struct_type(api);
   define_editors(api);

@@ -9,6 +9,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "nstructjs": "^0.5.6",
     "ws": "^6.2.1"
   },
   "optionalDependencies": {
